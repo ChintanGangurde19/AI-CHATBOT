@@ -1,0 +1,171 @@
+import pyttsx3 as pt
+import speech_recognition as sr
+import webbrowser
+from datetime import datetime
+import os
+import openai
+from config import APIKEY
+
+assistant = pt.init("sapi5")
+
+voices = assistant.getProperty("voices")
+for voice in voices:
+    print(voice.id)
+    assistant.setProperty("voices",voices[1].id)
+
+def speak(audio):
+    print(" ")
+    assistant.say(audio)
+    print("")
+    assistant.runAndWait()
+
+def take_Command():
+    command = sr.Recognizer()
+    with sr.Microphone() as source:
+        command.pause_threshold = 1
+
+        try:
+            print("Listening....", end="", flush=True)
+            audio = command.listen(source)
+            print("\r",end="",flush=True)
+            print("Recognizing",end="",flush=True)
+            query = command.recognize_google(audio,language="en-in")
+            print("\r", end="", flush=True)
+            print(f"You said {query}")
+        except Exception as e:
+            print(f"Encountered an error {e}")
+            return "Sorry i did not catch that. Can you please repeat?"
+        return query.lower()
+
+def ai(prompt):
+    openai.api_key = APIKEY
+    text = f"OpenAI response for Prompt: {prompt} \n *************************\n\n"
+    # Define the input messages
+    messages = [
+        {
+            "role": "user",
+            "content": "Write an email to my college for a leave for a family vacation."
+        }
+    ]
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=messages,
+        temperature=1,
+        max_tokens=256,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+    text += response.choices[0].message.content
+    if not os.path.exists("Openai"):
+        os.mkdir("Openai")
+
+    with open(f"Openai/{''.join(prompt.split('intelligence')[1:]).strip()}.txt", "w") as f:
+        f.write(text)
+
+
+chatStr = ""
+
+
+def chat(query):
+    global chatStr
+    print(chatStr)
+    openai.api_key = APIKEY
+    chatStr += f"Chintan: {query}\n Veedos: "
+
+    # Define the input messages
+    messages = [
+        {
+            "role": "user",
+            "content": query
+        }
+    ]
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=messages,
+        temperature=1,
+        max_tokens=256,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+    # todo: Wrap this inside of a  try catch block
+    chatStr += f"{response.choices[0].message.content}\n"
+    speak(response.choices[0].message.content)
+
+    # return response.choices[0].message.content
+
+
+def perform_os_operations(command):
+    supported_operations = {
+        "shutdown": "shutdown /s /t 0",
+        "restart": "shutdown /r /t 0",
+        "sleep": "rundll32.exe powrprof.dll,SetSuspendState 0,1,0"
+    }
+
+    if command in supported_operations:
+        os.system(supported_operations[command])
+        speak(f"Performing {command}")
+    else:
+        speak(f"Operation {command} not supported.")
+
+
+websites = {
+        "google":"https://www.google.com/",
+        "youtube": "https://www.youtube.com/",
+        "udemy":"https://www.udemy.com/",
+        "wikipedia":"https://www.wikipedia.com/",
+        "reddit":"https://www.reddit.com/",
+        "x":"https://twitter.com/x",
+        "instagram":"https://www.instagram.com/?hl=en",
+        "facebook":"https://www.facebook.com/",
+
+}
+applications = {
+        "word":"C:\ProgramData\Microsoft\Windows\Start Menu\Programs"
+
+}
+
+speak("Hello my name is VAEEDOS")
+
+
+while True  :
+    query = take_Command()
+    #speak(query)
+
+    for website in websites:
+        if website in query:
+            speak(f"Opening {website}  as per your request sir.")
+            webbrowser.open(websites[website])
+
+
+
+    if "time" in query:
+        # Get the current date and time
+        current_time = datetime.now()
+
+        # Format the time
+        formatted_time = current_time.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Print it out
+        speak(formatted_time)
+
+
+    elif "using artificial intelligence" in query:
+        ai(prompt=query)
+
+    elif "quit".lower() in query:
+        speak("Goodbye Sir!")
+        exit()
+
+    elif query in ["shutdown", "restart", "sleep"]:
+        perform_os_operations(query)
+
+    elif "reset chat" in query:
+        chatStr = ""
+
+    else:
+        print("Chatting...")
+        chat(query)
